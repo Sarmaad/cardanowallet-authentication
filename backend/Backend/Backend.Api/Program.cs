@@ -1,15 +1,38 @@
-var builder = WebApplication.CreateBuilder(args);
+using Serilog.Events;
+using Serilog;
+using Backend.Api.Infrastructure;
 
-// Add services to the container.
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Filter.ByExcluding("EndsWith(RequestPath,'/health')")
+    .WriteTo.Console()
+    .CreateLogger();
 
-builder.Services.AddMvc();
+try
+{
+    Log.Information("Starting host application");
+    var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+    builder.Configuration.AddEnvironmentVariables();
+    builder.Host.UseSerilog();
 
-// Configure the HTTP request pipeline.
+    builder.ApiStandard();
 
-app.UseHttpsRedirection();
+    builder.Services.AddSingleton<IRepository, MemoryRepository>();
+    builder.Services.AddTransient<ISessionService, SessionService>();
+
+    var app = builder.Build();
+
+    app.AppStandard();
 
 
-app.Run();
+    app.Run();
+}
+catch (Exception e)
+{
+    Log.Fatal(e, "Host terminated unexpectedly");
+}
+
+
 
